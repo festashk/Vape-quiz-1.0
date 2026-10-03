@@ -1,0 +1,356 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Vape Quiz — учим вкусы</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: #fff; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .app {
+    background: #0f3460; border-radius: 20px;
+    padding: 30px; max-width: 600px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  h1 { text-align: center; margin-bottom: 20px; font-size: 24px; }
+  .stats {
+    display: flex; justify-content: space-between;
+    background: #1a1a2e; padding: 12px 20px;
+    border-radius: 12px; margin-bottom: 20px; font-size: 14px;
+  }
+  .stats span b { color: #4ade80; }
+  .card {
+    background: #1a1a2e; border-radius: 16px;
+    padding: 30px 20px; min-height: 200px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; margin-bottom: 20px;
+    transition: all .2s;
+  }
+  .emoji { font-size: 48px; margin-bottom: 10px; }
+  .question { font-size: 22px; font-weight: 600; margin-bottom: 10px; }
+  .sub { color: #94a3b8; font-size: 14px; }
+  .answer { font-size: 20px; color: #4ade80; font-weight: 600; }
+  .options {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 15px;
+  }
+  button {
+    background: #e94560; color: white; border: none;
+    padding: 14px; border-radius: 10px;
+    font-size: 15px; cursor: pointer;
+    transition: .2s; font-weight: 500;
+  }
+  button:hover { background: #ff5c7a; transform: translateY(-2px); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .option {
+    background: #16213e; border: 2px solid #1a1a2e;
+    padding: 14px; border-radius: 10px;
+    cursor: pointer; font-size: 15px;
+    transition: .2s; text-align: left;
+  }
+  .option:hover:not(:disabled) { border-color: #4ade80; }
+  .option.correct { background: #166534; border-color: #4ade80; }
+  .option.wrong { background: #7f1d1d; border-color: #ef4444; }
+  .option:disabled { cursor: default; }
+  .next-btn { width: 100%; background: #4ade80; color: #0f3460; }
+  .next-btn:hover { background: #22c55e; }
+  .progress-bar {
+    height: 6px; background: #1a1a2e;
+    border-radius: 3px; overflow: hidden; margin-bottom: 20px;
+  }
+  .progress-fill {
+    height: 100%; background: linear-gradient(90deg, #4ade80, #22c55e);
+    transition: width .3s;
+  }
+  .result {
+    text-align: center; padding: 20px 0;
+  }
+  .result h2 { font-size: 32px; margin-bottom: 15px; }
+  .result p { margin-bottom: 10px; font-size: 16px; }
+  .hidden { display: none; }
+  .hint { font-size: 12px; color: #64748b; text-align: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🎮 Vape Quiz</h1>
+
+  <div id="startScreen">
+    <div class="card">
+      <div class="emoji">🧠</div>
+      <div class="question">Выучи 60+ вкусов за 30 минут</div>
+      <div class="sub">Выбери режим и начнём!</div>
+    </div>
+    <button onclick="startGame('flash')">📖 Флеш-карточки (запоминание)</button>
+    <br><br>
+    <button onclick="startGame('quiz')">🎯 Тест (проверка)</button>
+    <br><br>
+    <button onclick="startGame('reverse')">🔄 Обратный тест (по описанию)</button>
+    <div class="hint">Совет: сначала карточки, потом тест — так запомнишь быстрее</div>
+  </div>
+
+  <div id="gameScreen" class="hidden">
+    <div class="stats">
+      <span>Вопрос: <b id="qNum">1</b>/<b id="qTotal">0</b></span>
+      <span>✅ <b id="correctCount">0</b></span>
+      <span>❌ <b id="wrongCount">0</b></span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+    <div class="card" id="card">
+      <div class="emoji" id="emoji">🍬</div>
+      <div class="question" id="question">Вопрос</div>
+      <div class="sub" id="sub"></div>
+      <div class="answer hidden" id="answer"></div>
+    </div>
+
+    <div class="options" id="options"></div>
+    <button class="next-btn hidden" id="nextBtn" onclick="nextQuestion()">Дальше →</button>
+    <button class="next-btn" id="showBtn" onclick="showAnswer()">Показать ответ</button>
+  </div>
+
+  <div id="endScreen" class="hidden">
+    <div class="result">
+      <h2 id="endTitle">🎉 Готово!</h2>
+      <p id="endStats"></p>
+      <p id="endPercent"></p>
+      <br>
+      <button onclick="location.reload()">🔁 Пройти заново</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = [
+  // Леденцы и конфеты
+  {emoji:"🍎", name:"Apple Drops", desc:"яблочные леденцы", cat:"Леденцы"},
+  {emoji:"🍭", name:"Berry holls", desc:"ягодные леденцы", cat:"Леденцы"},
+  {emoji:"🍬", name:"Barberry Candy", desc:"барбарисовые конфеты", cat:"Леденцы"},
+  {emoji:"🍯", name:"Honey holls", desc:"медовые леденцы", cat:"Леденцы"},
+  {emoji:"🥛", name:"Candy cow", desc:"сгущёнка", cat:"Леденцы"},
+  {emoji:"🍫", name:"Choco mint", desc:"шоколад мята", cat:"Леденцы"},
+  {emoji:"🍦", name:"Ice cream", desc:"мороженое", cat:"Леденцы"},
+
+  // Ягоды
+  {emoji:"🧃", name:"Berry mors", desc:"брусника черешня малина", cat:"Ягоды"},
+  {emoji:"🔮", name:"Blackberry", desc:"ежевика", cat:"Ягоды"},
+  {emoji:"💣", name:"Black Currant", desc:"чёрная смородина", cat:"Ягоды"},
+  {emoji:"🫐", name:"Blueberry", desc:"черника", cat:"Ягоды"},
+  {emoji:"🍷", name:"Cranberry", desc:"клюква", cat:"Ягоды"},
+  {emoji:"⚫️", name:"Elderberry", desc:"бузина", cat:"Ягоды"},
+  {emoji:"🫐", name:"Forest berries", desc:"лесные ягоды", cat:"Ягоды"},
+  {emoji:"🎾", name:"Gooseberry", desc:"крыжовник", cat:"Ягоды"},
+  {emoji:"🍒", name:"Nord Star", desc:"вишня", cat:"Ягоды"},
+  {emoji:"🍓", name:"Pinkman", desc:"клубника, малина и грейпфрут", cat:"Ягоды"},
+
+  // Фрукты и тропики
+  {emoji:"🍇", name:"Araram", desc:"чернослив арбуз виноград", cat:"Фрукты"},
+  {emoji:"🍌", name:"Banana mama", desc:"банан", cat:"Фрукты"},
+  {emoji:"🍇", name:"Garnet grape", desc:"гранат виноград", cat:"Фрукты"},
+  {emoji:"🔸", name:"Guanapapa", desc:"гуанабана и папая", cat:"Фрукты"},
+  {emoji:"🥭", name:"Jumango", desc:"манго малина мед", cat:"Фрукты"},
+  {emoji:"🥝", name:"Kiwi smoothie", desc:"киви", cat:"Фрукты"},
+  {emoji:"🥭", name:"Mango sling", desc:"манго", cat:"Фрукты"},
+  {emoji:"🍊", name:"Mandarin", desc:"мандарин", cat:"Фрукты"},
+  {emoji:"🍐", name:"Mad Pear", desc:"груша", cat:"Фрукты"},
+  {emoji:"🍋", name:"Marula", desc:"тропический фрукт марула", cat:"Фрукты"},
+  {emoji:"🍉", name:"Melonade", desc:"арбуз дыня", cat:"Фрукты"},
+  {emoji:"🍊", name:"Orange team", desc:"мандарин апельсин", cat:"Фрукты"},
+  {emoji:"🍌", name:"Paradise", desc:"банан, кокос и карамель", cat:"Фрукты"},
+  {emoji:"🟣", name:"Passion plum", desc:"слива и маракуйя", cat:"Фрукты"},
+  {emoji:"🌀", name:"Pearl pool", desc:"тропические фрукты и моринга", cat:"Фрукты"},
+  {emoji:"🍍", name:"Pineapple rings", desc:"ананасовые кольца", cat:"Фрукты"},
+  {emoji:"🪀", name:"Feijoa", desc:"фейхоа", cat:"Фрукты"},
+
+  // Цитрусы
+  {emoji:"🍸", name:"Cirrus spritz", desc:"цитрусовый коктейль", cat:"Цитрусы"},
+  {emoji:"🍊", name:"Grapefruit", desc:"грейпфрут", cat:"Цитрусы"},
+  {emoji:"🍋", name:"Lemon-Lime", desc:"лимон лайм", cat:"Цитрусы"},
+  {emoji:"🟢", name:"Lemongrass", desc:"лемонграсс лайм", cat:"Цитрусы"},
+  {emoji:"🫖", name:"Morocco", desc:"цитрусовый чай", cat:"Цитрусы"},
+
+  // Напитки
+  {emoji:"🥤", name:"Baikal", desc:"ягодный микс с колой и немного хвои", cat:"Напитки"},
+  {emoji:"🥤", name:"Cola", desc:"кола", cat:"Напитки"},
+  {emoji:"🍒", name:"Cherry cola", desc:"вишня кола", cat:"Напитки"},
+  {emoji:"🧋", name:"Cream soda", desc:"крем сода (сливочный напиток)", cat:"Напитки"},
+  {emoji:"🥒", name:"Cucunade", desc:"огуречный лимонад", cat:"Напитки"},
+  {emoji:"🍵", name:"Estragon", desc:"тархун", cat:"Напитки"},
+  {emoji:"🧊", name:"Frosty", desc:"лёд", cat:"Напитки"},
+  {emoji:"🍸", name:"Green fizz", desc:"кактус киви абсент", cat:"Напитки"},
+
+  // Чай и кофе
+  {emoji:"☕️", name:"Earl grey", desc:"чай", cat:"Чай/кофе"},
+  {emoji:"🍵", name:"Milk oolong", desc:"молочный улун", cat:"Чай/кофе"},
+  {emoji:"🥬", name:"Peppermint", desc:"перечная мята", cat:"Чай/кофе"},
+  {emoji:"🍃", name:"Ice mint", desc:"лёд мята", cat:"Чай/кофе"},
+
+  // Выпечка
+  {emoji:"🍪", name:"Cookie", desc:"печенье", cat:"Десерты"},
+  {emoji:"🥧", name:"Charlotte pie", desc:"яблочный пирог", cat:"Десерты"},
+  {emoji:"🥯", name:"Cinnamon roll", desc:"булочка с корицей", cat:"Десерты"},
+  {emoji:"🥧", name:"Holland pie", desc:"голландский пирог", cat:"Десерты"},
+  {emoji:"🧇", name:"Lemon pie", desc:"лимонный пирог", cat:"Десерты"},
+  {emoji:"🥧", name:"Maple pecan", desc:"выпечка кленовый сироп", cat:"Десерты"},
+  {emoji:"🥣", name:"Milky rice", desc:"рисовая каша", cat:"Десерты"},
+  {emoji:"☕️", name:"Cacao", desc:"какао с маршмеллоу", cat:"Десерты"},
+  {emoji:"🥥", name:"Coconut Shake", desc:"кокос", cat:"Десерты"},
+  {emoji:"🧆", name:"Pistachio", desc:"фисташка", cat:"Десерты"},
+
+  // Алкоголь
+  {emoji:"🥂", name:"Christmas drink", desc:"шампанское", cat:"Алкоголь"},
+  {emoji:"🥃", name:"Caribbean Rum", desc:"карибский ром", cat:"Алкоголь"},
+  {emoji:"🥂", name:"Fizzy dizzy", desc:"барбарис шампанское", cat:"Алкоголь"},
+  {emoji:"🍷", name:"Mulled wine", desc:"глинтвейн", cat:"Алкоголь"},
+  {emoji:"🥂", name:"Prosecco", desc:"игристое полусухое вино", cat:"Алкоголь"},
+
+  // Прочее
+  {emoji:"🌸", name:"Alova", desc:"алоэ и розовая гуава", cat:"Прочее"},
+  {emoji:"🚬", name:"Barley base", desc:"без аромки", cat:"Прочее"}
+];
+
+let mode = 'flash';
+let deck = [];
+let current = 0;
+let correct = 0;
+let wrong = 0;
+let answered = false;
+
+function shuffle(a) { return a.sort(() => Math.random() - 0.5); }
+
+function startGame(m) {
+  mode = m;
+  deck = shuffle([...DATA]);
+  current = 0; correct = 0; wrong = 0;
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('gameScreen').classList.remove('hidden');
+  document.getElementById('qTotal').textContent = deck.length;
+  renderQuestion();
+}
+
+function renderQuestion() {
+  answered = false;
+  const item = deck[current];
+  document.getElementById('qNum').textContent = current + 1;
+  document.getElementById('progressFill').style.width = ((current) / deck.length * 100) + '%';
+  document.getElementById('correctCount').textContent = correct;
+  document.getElementById('wrongCount').textContent = wrong;
+
+  const emojiEl = document.getElementById('emoji');
+  const qEl = document.getElementById('question');
+  const subEl = document.getElementById('sub');
+  const ansEl = document.getElementById('answer');
+  const optsEl = document.getElementById('options');
+  const nextBtn = document.getElementById('nextBtn');
+  const showBtn = document.getElementById('showBtn');
+
+  ansEl.classList.add('hidden');
+  optsEl.innerHTML = '';
+  nextBtn.classList.add('hidden');
+
+  if (mode === 'flash') {
+    // Флеш-карточка: показываем название, нужно вспомнить описание
+    emojiEl.textContent = item.emoji;
+    qEl.textContent = item.name;
+    subEl.textContent = 'Что это за вкус?';
+    ansEl.textContent = '👉 ' + item.desc;
+    showBtn.classList.remove('hidden');
+  } else if (mode === 'quiz') {
+    // Тест: показываем название, выбираем описание
+    emojiEl.textContent = item.emoji;
+    qEl.textContent = item.name;
+    subEl.textContent = 'Выбери правильное описание';
+    showBtn.classList.add('hidden');
+    const wrongs = shuffle(DATA.filter(d => d.name !== item.name)).slice(0, 3);
+    const opts = shuffle([item, ...wrongs]);
+    opts.forEach(o => {
+      const b = document.createElement('div');
+      b.className = 'option';
+      b.textContent = o.desc;
+      b.onclick = () => checkAnswer(b, o.name === item.name, item);
+      optsEl.appendChild(b);
+    });
+  } else {
+    // Обратный тест: показываем описание, выбираем название
+    emojiEl.textContent = item.emoji;
+    qEl.textContent = item.desc;
+    subEl.textContent = 'Как называется этот вкус?';
+    showBtn.classList.add('hidden');
+    const wrongs = shuffle(DATA.filter(d => d.name !== item.name)).slice(0, 3);
+    const opts = shuffle([item, ...wrongs]);
+    opts.forEach(o => {
+      const b = document.createElement('div');
+      b.className = 'option';
+      b.textContent = o.name;
+      b.onclick = () => checkAnswer(b, o.name === item.name, item);
+      optsEl.appendChild(b);
+    });
+  }
+}
+
+function showAnswer() {
+  document.getElementById('answer').classList.remove('hidden');
+  document.getElementById('showBtn').classList.add('hidden');
+  document.getElementById('nextBtn').classList.remove('hidden');
+}
+
+function checkAnswer(btn, isCorrect, item) {
+  if (answered) return;
+  answered = true;
+  const allOpts = document.querySelectorAll('.option');
+  allOpts.forEach(o => o.disabled = true);
+
+  if (isCorrect) {
+    btn.classList.add('correct');
+    correct++;
+  } else {
+    btn.classList.add('wrong');
+    wrong++;
+    // подсветить правильный
+    allOpts.forEach(o => {
+      const txt = o.textContent;
+      if ((mode === 'quiz' && txt === item.desc) || (mode === 'reverse' && txt === item.name)) {
+        o.classList.add('correct');
+      }
+    });
+  }
+  document.getElementById('correctCount').textContent = correct;
+  document.getElementById('wrongCount').textContent = wrong;
+  document.getElementById('nextBtn').classList.remove('hidden');
+}
+
+function nextQuestion() {
+  current++;
+  if (current >= deck.length) {
+    endGame();
+  } else {
+    renderQuestion();
+  }
+}
+
+function endGame() {
+  document.getElementById('gameScreen').classList.add('hidden');
+  document.getElementById('endScreen').classList.remove('hidden');
+  const total = correct + wrong;
+  const pct = total > 0 ? Math.round(correct / total * 100) : 0;
+
+  let title = '🎉 Отлично!';
+  if (pct < 50) title = '📚 Ещё разок!';
+  else if (pct < 80) title = '👍 Хорошо!';
+  else if (pct < 95) title = '🔥 Очень хорошо!';
+  else title = '🏆 Идеально!';
+
+  document.getElementById('endTitle').textContent = title;
+  document.getElementById('endStats').textContent = `Правильно: ${correct} из ${total}`;
+  document.getElementById('endPercent').textContent = `Результат: ${pct}%`;
+}
+</script>
+</body>
+</html>
